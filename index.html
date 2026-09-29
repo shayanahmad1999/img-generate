@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Text to Image Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light">
+    <div class="container py-5">
+        <h1 class="text-center mb-4">Text to Image Generator</h1>
+        <div class="card p-4 shadow">
+            <div class="mb-3">
+                <label for="provider" class="form-label">Image model:</label>
+                <select id="provider" class="form-select">
+                    <option value="gemini" selected>Google Gemini</option>
+                    <option value="openai">OpenAI</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="prompt" class="form-label">Enter your prompt:</label>
+                <textarea id="prompt" class="form-control" rows="3" placeholder="Describe your image..."></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="size" class="form-label">Select size:</label>
+                <select id="size" class="form-select">
+                    <option value="1024x1024" selected>1024 x 1024 (Square)</option>
+                    <option value="1024x1536">1024 x 1536 (Portrait)</option>
+                    <option value="1536x1024">1536 x 1024 (Landscape)</option>
+                    <option value="auto">Auto</option>
+                </select>
+            </div>
+            <button id="generateBtn" class="btn btn-primary w-100">Generate Image</button>
+        </div>
+        <div id="result" class="mt-4 text-center" aria-live="polite"></div>
+    </div>
+
+    <script>
+        const generateButton = document.getElementById('generateBtn');
+        const result = document.getElementById('result');
+
+        function showMessage(message, type = 'danger') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            result.replaceChildren(alert);
+        }
+
+        generateButton.addEventListener('click', async () => {
+            const prompt = document.getElementById('prompt').value.trim();
+            const size = document.getElementById('size').value;
+            const provider = document.getElementById('provider').value;
+            if (!prompt) {
+                showMessage('Please enter a description.');
+                return;
+            }
+
+            generateButton.disabled = true;
+            showMessage('Generating...', 'secondary');
+
+            try {
+                const res = await fetch('php/generate.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, size, provider })
+                });
+
+                let data;
+                try {
+                    data = await res.json();
+                } catch {
+                    throw new Error('The server returned an invalid response.');
+                }
+
+                if (!res.ok || data.error) {
+                    showMessage(data.error || 'Image generation failed.');
+                    return;
+                }
+
+                if (typeof data.image !== 'string' || !data.image.startsWith('data:image/') && !data.image.startsWith('https://')) {
+                    throw new Error('The server returned an invalid image.');
+                }
+
+                const image = document.createElement('img');
+                image.src = data.image;
+                image.alt = `Generated image for: ${prompt}`;
+                image.className = 'img-fluid rounded shadow';
+                result.replaceChildren(image);
+            } catch (err) {
+                showMessage(err.message || 'The request failed.');
+            } finally {
+                generateButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>
